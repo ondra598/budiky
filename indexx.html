@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Budík / Připomínka</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 400px; margin: 0 auto; background: #f9f9f9; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+        button { background: #0066cc; color: white; border: none; font-weight: bold; cursor: pointer; }
+        button:disabled { background: #aaa; }
+        .status { margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 14px; display: none; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>PWA Budík</h2>
+    
+    <label for="alarmTime">Čas upozornění:</label>
+    <input type="time" id="alarmTime" value="08:00">
+    
+    <label for="alarmText">Popis:</label>
+    <input type="text" id="alarmText" value="Vstávat a cvičit!">
+    
+    <button id="btnPermission" onclick="requestPermission()">1. Povolit notifikace</button>
+    <button id="btnSet" onclick="scheduleNotification()" disabled>2. Nastavit budík</button>
+
+    <div id="status" class="status"></div>
+</div>
+
+<script>
+    let swRegistration = null;
+
+    // Registrace Service Workeru hned po načtení
+    if ('serviceWorker' in navigator && 'Notification' in window) {
+        navigator.serviceWorker.register('sw.js')
+            .then(reg => {
+                swRegistration = reg;
+                console.log('Service Worker zaregistrován');
+                checkPermissionState();
+            })
+            .catch(err => showStatus('Chyba registrace SW: ' + err, true));
+    } else {
+        showStatus('Váš prohlížeč nepodporuje PWA Notifikace.', true);
+    }
+
+    function checkPermissionState() {
+        if (Notification.permission === 'granted') {
+            document.getElementById('btnPermission').innerText = '✓ Notifikace povoleny';
+            document.getElementById('btnPermission').disabled = true;
+            document.getElementById('btnSet').disabled = false;
+        }
+    }
+
+    function requestPermission() {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                checkPermissionState();
+                showStatus('Oprávnění bylo uděleno.');
+            } else {
+                showStatus('Notifikace byly zamítnuty.', true);
+            }
+        });
+    }
+
+    function scheduleNotification() {
+        const timeInput = document.getElementById('alarmTime').value;
+        const textInput = document.getElementById('alarmText').value;
+
+        if (!timeInput) return showStatus('Zadejte platný čas!', true);
+
+        const now = new Date();
+        const [hours, minutes] = timeInput.split(':');
+        
+        let targetTime = new Date();
+        targetTime.setHours(parseInt(hours, 10));
+        targetTime.setMinutes(parseInt(minutes, 10));
+        targetTime.setSeconds(0);
+
+        // Pokud zvolený čas dnes již proběhl, nastaví se na zítřek
+        if (targetTime <= now) {
+            targetTime.setDate(targetTime.getDate() + 1);
+        }
+
+        const delay = targetTime.getTime() - now.getTime();
+
+        // Odeslání požadavku do Service Workeru
+        if (swRegistration && swRegistration.active) {
+            swRegistration.active.postMessage({
+                type: 'SCHEDULE_NOTIFICATION',
+                title: 'Budík PWA',
+                body: textInput,
+                delay: delay
+            });
+
+            const formattedTime = targetTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            showStatus(`Budík je nastaven na ${formattedTime}.`);
+        } else {
+            showStatus('Service Worker není aktivní.', true);
+        }
+    }
+
+    function showStatus(msg, isError = false) {
+        const el = document.getElementById('status');
+        el.innerText = msg;
+        el.style.display = 'block';
+        el.className = 'status ' + (isError ? 'error' : 'success');
+    }
+</script>
+
+</body>
+</html>
