@@ -260,9 +260,29 @@
       uživatel jen potvrdí uložení.
     </p>
     <div class="platform-note"><span class="dot"></span> Funguje v Chrome / na Androidu &nbsp;·&nbsp; <span class="dot off"></span> Nefunguje v Safari na iOS</div>
+
+    <label class="check" style="justify-content:center;margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--muted);">
+      <input type="checkbox" id="forceGoogleClock" checked>
+      Vynutit balíček Google Hodiny (com.google.android.deskclock) — obchází MIUI/HyperOS výběr appky
+    </label>
   </header>
 
   <main>
+
+    <!-- 0. DIAGNOSTIKA -->
+    <section class="panel" id="diagTest" style="border-color:#4a4552;">
+      <div class="plate"><span class="num">TEST</span><h2>Nejdřív ověř, jestli intenty fungují vůbec</h2></div>
+      <p class="desc">
+        Tenhle odkaz nemá s budíkem nic společného — jen otevře Obchod Play na
+        stránce Chromu. Má ho skoro každý Android telefon, takže je to čistý
+        test, jestli tvůj prohlížeč `intent://` odkazy umí spustit vůbec.
+        Pokud ani tohle nic neudělá, problém není v appce hodin, ale v
+        Chromu / nastavení telefonu.
+      </p>
+      <div class="actions">
+        <a class="link-btn" href="intent://details?id=com.android.chrome#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.android.chrome;end">↗ Test: otevřít Obchod Play</a>
+      </div>
+    </section>
 
     <!-- 1. SET_ALARM -->
     <section class="panel" id="setAlarm">
@@ -399,6 +419,8 @@
   // typ 'S' = string, 'i' = int, 'B' = boolean  (viz Intent.parseUri gramatika)
   function buildIntentUri(action, extras){
     const parts = ['action=android.intent.action.' + action];
+    const forcePkg = document.getElementById('forceGoogleClock').checked;
+    if (forcePkg) parts.push('package=com.google.android.deskclock');
     extras.forEach(e => {
       if (e.value === undefined || e.value === null || e.value === '') return;
       let val = e.value;
