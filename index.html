@@ -3,105 +3,69 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Android Budík</title>
+  <title>Test Android Budíku</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-      background-color: #f4f6f8;
-      padding: 20px;
-      display: flex;
-      justify-content: center;
-    }
-
-    .card {
-      background: #ffffff;
-      width: 100%;
-      max-width: 400px;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      box-sizing: border-box;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    label {
-      display: block;
-      font-weight: bold;
-      margin-bottom: 6px;
-    }
-
-    input[type="time"], input[type="text"] {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      box-sizing: border-box;
-      font-size: 16px;
-    }
-
-    /* Tlačítko jako <a> odkaz – klíč k funkčnosti v Chrome */
-    .btn-alarm {
-      display: block;
-      width: 100%;
-      padding: 14px 0;
-      background-color: #2563eb;
-      color: white;
-      text-align: center;
-      text-decoration: none;
-      font-weight: bold;
-      border-radius: 8px;
-      box-sizing: border-box;
-      margin-top: 12px;
-    }
-
-    .btn-alarm:active {
-      background-color: #1d4ed8;
-    }
+    body { font-family: sans-serif; padding: 20px; background: #f0f2f5; }
+    .card { background: white; padding: 20px; border-radius: 12px; max-width: 400px; margin: 0 auto; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-weight: bold; margin-bottom: 4px; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    .btn { display: block; width: 100%; padding: 12px 0; background: #2563eb; color: white; text-align: center; text-decoration: none; font-weight: bold; border-radius: 6px; margin-top: 10px; }
   </style>
 </head>
 <body>
 
 <div class="card">
-  <h2>Nastavit Budík</h2>
+  <h2>Nastavení Budíku</h2>
 
   <div class="form-group">
-    <label for="time">Čas budíku</label>
-    <input type="time" id="time" value="07:00" onchange="updateIntentLink()">
+    <label>Výrobce / Aplikace hodin:</label>
+    <select id="brand" onchange="updateIntent()">
+      <option value="generic">Univerzální Android</option>
+      <option value="google">Google Hodiny (Pixel, Motorola, Xiaomi z ČR)</option>
+      <option value="samsung">Samsung Hodiny</option>
+      <option value="xiaomi">Xiaomi / Poco / Redmi (MIUI/HyperOS)</option>
+    </select>
   </div>
 
   <div class="form-group">
-    <label for="msg">Popis</label>
-    <input type="text" id="msg" value="Budík z webu" oninput="updateIntentLink()">
+    <label>Čas:</label>
+    <input type="time" id="time" value="07:00" onchange="updateIntent()">
   </div>
 
-  <!-- Přímý odkaz místo JS přesměrování -->
-  <a id="alarmLink" href="#" class="btn-alarm">Otevřít budík v telefonu</a>
+  <div class="form-group">
+    <label>Popis:</label>
+    <input type="text" id="msg" value="Test budík" oninput="updateIntent()">
+  </div>
+
+  <a id="alarmLink" href="#" class="btn">Otevřít budík</a>
 </div>
 
 <script>
-  function updateIntentLink() {
+  function updateIntent() {
+    const brand = document.getElementById('brand').value;
     const timeVal = document.getElementById('time').value || "07:00";
-    const msgVal = document.getElementById('msg').value || "Budík";
-
+    const msgVal = document.getElementById('msg').value || "Budik";
     const [hours, minutes] = timeVal.split(':');
 
-    // Sestavení Intentu s rozšířenou kompatibilitou pro novější Android/Chrome
+    let packageAttr = "";
+    if (brand === 'google') packageAttr = ";package=com.google.android.deskclock";
+    if (brand === 'samsung') packageAttr = ";package=com.sec.android.app.clockpackage";
+    if (brand === 'xiaomi') packageAttr = ";package=com.android.deskclock";
+
+    // Sestavení Intentu
     const intentUrl = `intent:#Intent;` +
       `action=android.intent.action.SET_ALARM;` +
       `S.android.intent.extra.alarm.MESSAGE=${encodeURIComponent(msgVal)};` +
       `i.android.intent.extra.alarm.HOUR=${parseInt(hours, 10)};` +
       `i.android.intent.extra.alarm.MINUTES=${parseInt(minutes, 10)};` +
-      `b.android.intent.extra.alarm.SKIP_UI=false;` +
+      `b.android.intent.extra.alarm.SKIP_UI=false${packageAttr};` +
       `end`;
 
     document.getElementById('alarmLink').href = intentUrl;
   }
 
-  // Inicializace odkazu po načtení
-  updateIntentLink();
+  updateIntent();
 </script>
 
 </body>
