@@ -1,72 +1,501 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Android Budíku</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; background: #f0f2f5; }
-    .card { background: white; padding: 20px; border-radius: 12px; max-width: 400px; margin: 0 auto; }
-    .form-group { margin-bottom: 12px; }
-    label { display: block; font-weight: bold; margin-bottom: 4px; }
-    input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-    .btn { display: block; width: 100%; padding: 12px 0; background: #2563eb; color: white; text-align: center; text-decoration: none; font-weight: bold; border-radius: 6px; margin-top: 10px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budík přes intent — generátor odkazů pro systémovou appku Hodiny</title>
+<meta name="description" content="Generátor intent:// odkazů, které na Androidu otevřou systémovou appku Budík/Hodiny a předvyplní alarm, časovač nebo je zobrazí či zruší.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏰</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #17161b;
+    --panel: #201f26;
+    --panel-alt: #26242d;
+    --border: #38343f;
+    --brass: #c99a3e;
+    --brass-bright: #e3b955;
+    --red: #c1443c;
+    --text: #f1ece2;
+    --muted: #928c81;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --display: 'Space Grotesk', sans-serif;
+    --body-font: 'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(201,154,62,0.08), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--body-font);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px 80px;}
+
+  /* ---------- header / clock ---------- */
+  header{
+    padding:56px 0 40px;
+    text-align:center;
+    border-bottom:1px solid var(--border);
+    margin-bottom:44px;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    font-size:12px;
+    color:var(--brass);
+  }
+  .clock{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:clamp(48px,12vw,84px);
+    letter-spacing:.02em;
+    margin:14px 0 6px;
+    color:var(--brass-bright);
+    text-shadow:0 0 28px rgba(227,185,85,.35);
+    font-variant-numeric:tabular-nums;
+  }
+  .clock .colon{animation:blink 2s steps(1) infinite;}
+  @keyframes blink{50%{opacity:.25;}}
+  h1{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:clamp(22px,4vw,30px);
+    margin:8px 0 12px;
+  }
+  header p{
+    max-width:560px;
+    margin:0 auto;
+    color:var(--muted);
+    font-size:15px;
+  }
+  .platform-note{
+    display:inline-flex;
+    gap:8px;
+    align-items:center;
+    margin-top:22px;
+    padding:8px 14px;
+    border:1px solid var(--border);
+    border-radius:999px;
+    font-size:13px;
+    color:var(--muted);
+    font-family:var(--mono);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:#5fbf6b;flex:none;}
+  .dot.off{background:var(--red);}
+
+  /* ---------- panels ---------- */
+  .panel{
+    background:linear-gradient(180deg, var(--panel), var(--panel-alt));
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:26px 24px 24px;
+    margin-bottom:22px;
+    position:relative;
+  }
+  .plate{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:6px;
+  }
+  .plate .num{
+    font-family:var(--mono);
+    color:var(--brass);
+    font-size:13px;
+    letter-spacing:.08em;
+  }
+  .plate h2{
+    font-family:var(--display);
+    font-size:19px;
+    font-weight:600;
+    margin:0;
+  }
+  .panel > .desc{
+    color:var(--muted);
+    font-size:13.5px;
+    margin:0 0 18px;
+  }
+  .row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:16px;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    flex:1 1 140px;
+  }
+  .field.grow{flex:2 1 220px;}
+  label{
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--muted);
+  }
+  input[type=number], input[type=text], select{
+    background:#141317;
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    padding:10px 12px;
+    font-family:var(--body-font);
+    font-size:14.5px;
+    width:100%;
+  }
+  input:focus, select:focus, button:focus-visible, a.link-btn:focus-visible{
+    outline:2px solid var(--brass);
+    outline-offset:2px;
+  }
+  .check{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13.5px;
+    color:var(--text);
+  }
+  .check input{width:16px;height:16px;accent-color:var(--brass);}
+  .checks{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px;}
+
+  .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  button.generate{
+    background:var(--brass);
+    color:#1a1508;
+    border:none;
+    font-family:var(--display);
+    font-weight:600;
+    font-size:14px;
+    padding:11px 18px;
+    border-radius:9px;
+    cursor:pointer;
+    transition:transform .12s ease, background .12s ease;
+  }
+  button.generate:hover{background:var(--brass-bright);}
+  button.generate:active{transform:scale(.97);}
+
+  /* ---------- ticket / output ---------- */
+  .ticket{
+    margin-top:18px;
+    background:#0f0e12;
+    border:1px dashed #4a4552;
+    border-radius:10px;
+    padding:16px 16px 14px;
+    display:none;
+  }
+  .ticket.show{display:block;}
+  .ticket .uri{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:#cfead1;
+    word-break:break-all;
+    line-height:1.6;
+    margin:0 0 12px;
+  }
+  .ticket .row-actions{display:flex;flex-wrap:wrap;gap:10px;}
+  a.link-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:transparent;
+    border:1px solid var(--brass);
+    color:var(--brass-bright);
+    text-decoration:none;
+    font-family:var(--mono);
+    font-size:12.5px;
+    padding:8px 12px;
+    border-radius:7px;
+  }
+  a.link-btn:hover{background:rgba(201,154,62,.12);}
+  button.copy{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:12.5px;
+    padding:8px 12px;
+    border-radius:7px;
+    cursor:pointer;
+  }
+  button.copy:hover{color:var(--text);border-color:var(--muted);}
+  button.copy.copied{color:#5fbf6b;border-color:#5fbf6b;}
+
+  .danger .plate .num{color:var(--red);}
+
+  footer{
+    margin-top:40px;
+    text-align:center;
+    color:var(--muted);
+    font-size:12.5px;
+    font-family:var(--mono);
+  }
+  footer a{color:var(--brass);}
+
+  @media (prefers-reduced-motion: reduce){
+    .clock .colon{animation:none;}
+    html{scroll-behavior:auto;}
+  }
+</style>
 </head>
 <body>
+<div class="wrap">
 
-<div class="card">
-  <h2>Nastavení Budíku</h2>
+  <header>
+    <div class="eyebrow">android · intent:// · com.android.deskclock</div>
+    <div class="clock" id="liveClock" aria-hidden="true">--<span class="colon">:</span>--</div>
+    <h1>Odkazy, které otevřou systémový budík</h1>
+    <p>
+      Každý panel níž sestaví <code>intent://</code> odkaz podle oficiálních extra
+      hodnot z <code>android.provider.AlarmClock</code>. Klik na odkaz otevře nativní
+      appku hodin telefonu (Hodiny Google, Samsung Clock apod.) s předvyplněnými údaji —
+      uživatel jen potvrdí uložení.
+    </p>
+    <div class="platform-note"><span class="dot"></span> Funguje v Chrome / na Androidu &nbsp;·&nbsp; <span class="dot off"></span> Nefunguje v Safari na iOS</div>
+  </header>
 
-  <div class="form-group">
-    <label>Výrobce / Aplikace hodin:</label>
-    <select id="brand" onchange="updateIntent()">
-      <option value="generic">Univerzální Android</option>
-      <option value="google">Google Hodiny (Pixel, Motorola, Xiaomi z ČR)</option>
-      <option value="samsung">Samsung Hodiny</option>
-      <option value="xiaomi">Xiaomi / Poco / Redmi (MIUI/HyperOS)</option>
-    </select>
-  </div>
+  <main>
 
-  <div class="form-group">
-    <label>Čas:</label>
-    <input type="time" id="time" value="07:00" onchange="updateIntent()">
-  </div>
+    <!-- 1. SET_ALARM -->
+    <section class="panel" id="setAlarm">
+      <div class="plate"><span class="num">01</span><h2>Nastavit budík</h2></div>
+      <p class="desc"><code>ACTION_SET_ALARM</code> — otevře obrazovku „nový budík" s předvyplněným časem, popiskem a případně dalšími volbami.</p>
 
-  <div class="form-group">
-    <label>Popis:</label>
-    <input type="text" id="msg" value="Test budík" oninput="updateIntent()">
-  </div>
+      <div class="row">
+        <div class="field">
+          <label for="a-hour">Hodina (0–23)</label>
+          <input type="number" id="a-hour" min="0" max="23" value="7">
+        </div>
+        <div class="field">
+          <label for="a-min">Minuta (0–59)</label>
+          <input type="number" id="a-min" min="0" max="59" value="30">
+        </div>
+        <div class="field grow">
+          <label for="a-msg">Popisek budíku</label>
+          <input type="text" id="a-msg" value="Ranní vstávání">
+        </div>
+      </div>
 
-  <a id="alarmLink" href="#" class="btn">Otevřít budík</a>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="a-vibrate" checked> Vibrace</label>
+        <label class="check"><input type="checkbox" id="a-silent"> Tichý budík (bez tónu)</label>
+        <label class="check"><input type="checkbox" id="a-skipui"> Přeskočit potvrzovací obrazovku (Skip UI)</label>
+      </div>
+      <p class="desc" style="margin-top:-8px;">
+        Pozn.: opakování v konkrétní dny (<code>EXTRA_DAYS</code>) vyžaduje pole hodnot,
+        které <code>intent://</code> schéma spolehlivě nepodporuje — po otevření appky
+        proto dny doplní uživatel ručně.
+      </p>
+
+      <div class="actions">
+        <button class="generate" data-target="setAlarm">Vygenerovat odkaz</button>
+      </div>
+      <div class="ticket"><p class="uri"></p><div class="row-actions"></div></div>
+    </section>
+
+    <!-- 2. SET_TIMER -->
+    <section class="panel" id="setTimer">
+      <div class="plate"><span class="num">02</span><h2>Nastavit časovač</h2></div>
+      <p class="desc"><code>ACTION_SET_TIMER</code> — spustí odpočet o zadané délce. Jediná akce, kde jde nastavit i sekundy.</p>
+
+      <div class="row">
+        <div class="field">
+          <label for="t-h">Hodiny</label>
+          <input type="number" id="t-h" min="0" max="23" value="0">
+        </div>
+        <div class="field">
+          <label for="t-m">Minuty</label>
+          <input type="number" id="t-m" min="0" max="59" value="10">
+        </div>
+        <div class="field">
+          <label for="t-s">Sekundy</label>
+          <input type="number" id="t-s" min="0" max="59" value="0">
+        </div>
+        <div class="field grow">
+          <label for="t-msg">Popisek časovače</label>
+          <input type="text" id="t-msg" value="Vejce natvrdo">
+        </div>
+      </div>
+
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="t-skipui" checked> Spustit rovnou, bez potvrzení (Skip UI)</label>
+      </div>
+
+      <div class="actions">
+        <button class="generate" data-target="setTimer">Vygenerovat odkaz</button>
+      </div>
+      <div class="ticket"><p class="uri"></p><div class="row-actions"></div></div>
+    </section>
+
+    <!-- 3. SHOW_ALARMS -->
+    <section class="panel" id="showAlarms">
+      <div class="plate"><span class="num">03</span><h2>Zobrazit budíky</h2></div>
+      <p class="desc"><code>ACTION_SHOW_ALARMS</code> — bez parametrů, jen otevře seznam nastavených budíků.</p>
+      <div class="actions">
+        <button class="generate" data-target="showAlarms">Vygenerovat odkaz</button>
+      </div>
+      <div class="ticket"><p class="uri"></p><div class="row-actions"></div></div>
+    </section>
+
+    <!-- 4. DISMISS_ALARM -->
+    <section class="panel danger" id="dismissAlarm">
+      <div class="plate"><span class="num">04</span><h2>Vypnout budík</h2></div>
+      <p class="desc">
+        <code>ACTION_DISMISS_ALARM</code> — pokud existuje jediný aktivní (zvonící) budík, vypne ho;
+        jinak podle popisku dohledá shodu. Některé appky hodin toto vyžadují spustit z appky se
+        stejnou signaturou/oprávněním, takže z webu se nemusí vždy podařit tiše — otevře se
+        aspoň appka hodin.
+      </p>
+      <div class="row">
+        <div class="field grow">
+          <label for="d-msg">Popisek budíku k vypnutí (volitelné)</label>
+          <input type="text" id="d-msg" placeholder="např. Ranní vstávání">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="generate" data-target="dismissAlarm">Vygenerovat odkaz</button>
+      </div>
+      <div class="ticket"><p class="uri"></p><div class="row-actions"></div></div>
+    </section>
+
+    <!-- 5. DISMISS_TIMER -->
+    <section class="panel danger" id="dismissTimer">
+      <div class="plate"><span class="num">05</span><h2>Zrušit časovač</h2></div>
+      <p class="desc"><code>ACTION_DISMISS_TIMER</code> (API 29+) — bez parametrů zruší vypršené časovače, případně otevře jejich seznam.</p>
+      <div class="actions">
+        <button class="generate" data-target="dismissTimer">Vygenerovat odkaz</button>
+      </div>
+      <div class="ticket"><p class="uri"></p><div class="row-actions"></div></div>
+    </section>
+
+  </main>
+
+  <footer>
+    generováno lokálně v prohlížeči · žádná data se nikam neodesílají<br>
+    zdroj: <a href="https://developer.android.com/reference/android/provider/AlarmClock" target="_blank" rel="noopener">android.provider.AlarmClock</a>
+  </footer>
 </div>
 
 <script>
-  function updateIntent() {
-    const brand = document.getElementById('brand').value;
-    const timeVal = document.getElementById('time').value || "07:00";
-    const msgVal = document.getElementById('msg').value || "Budik";
-    const [hours, minutes] = timeVal.split(':');
+  // ---------- živé hodiny v hlavičce ----------
+  function tickClock(){
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    document.getElementById('liveClock').innerHTML = hh + '<span class="colon">:</span>' + mm;
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
 
-    let packageAttr = "";
-    if (brand === 'google') packageAttr = ";package=com.google.android.deskclock";
-    if (brand === 'samsung') packageAttr = ";package=com.sec.android.app.clockpackage";
-    if (brand === 'xiaomi') packageAttr = ";package=com.android.deskclock";
-
-    // Sestavení Intentu
-    const intentUrl = `intent:#Intent;` +
-      `action=android.intent.action.SET_ALARM;` +
-      `S.android.intent.extra.alarm.MESSAGE=${encodeURIComponent(msgVal)};` +
-      `i.android.intent.extra.alarm.HOUR=${parseInt(hours, 10)};` +
-      `i.android.intent.extra.alarm.MINUTES=${parseInt(minutes, 10)};` +
-      `b.android.intent.extra.alarm.SKIP_UI=false${packageAttr};` +
-      `end`;
-
-    document.getElementById('alarmLink').href = intentUrl;
+  // ---------- stavba intent:// URI ----------
+  // typ 'S' = string, 'i' = int, 'B' = boolean  (viz Intent.parseUri gramatika)
+  function buildIntentUri(action, extras){
+    const parts = ['action=android.intent.action.' + action];
+    extras.forEach(e => {
+      if (e.value === undefined || e.value === null || e.value === '') return;
+      let val = e.value;
+      if (e.type === 'S') val = encodeURIComponent(String(val));
+      parts.push(e.type + '.' + e.key + '=' + val);
+    });
+    return 'intent:#Intent;' + parts.join(';') + ';end';
   }
 
-  updateIntent();
-</script>
+  function renderTicket(panelEl, uri){
+    const ticket = panelEl.querySelector('.ticket');
+    ticket.querySelector('.uri').textContent = uri;
+    const actions = ticket.querySelector('.row-actions');
+    actions.innerHTML = '';
 
+    const link = document.createElement('a');
+    link.className = 'link-btn';
+    link.href = uri;
+    link.textContent = '↗ Otevřít v appce hodin';
+    actions.appendChild(link);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy';
+    copyBtn.type = 'button';
+    copyBtn.textContent = '⧉ Zkopírovat URI';
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(uri).then(() => {
+        copyBtn.textContent = '✓ Zkopírováno';
+        copyBtn.classList.add('copied');
+        setTimeout(() => { copyBtn.textContent = '⧉ Zkopírovat URI'; copyBtn.classList.remove('copied'); }, 1600);
+      });
+    });
+    actions.appendChild(copyBtn);
+
+    ticket.classList.add('show');
+  }
+
+  const generators = {
+    setAlarm(){
+      const hour = parseInt(document.getElementById('a-hour').value, 10);
+      const min  = parseInt(document.getElementById('a-min').value, 10);
+      const msg  = document.getElementById('a-msg').value;
+      const vibrate = document.getElementById('a-vibrate').checked;
+      const silent  = document.getElementById('a-silent').checked;
+      const skipUi  = document.getElementById('a-skipui').checked;
+
+      const extras = [
+        { type:'i', key:'android.intent.extra.alarm.HOUR', value:hour },
+        { type:'i', key:'android.intent.extra.alarm.MINUTES', value:min },
+        { type:'S', key:'android.intent.extra.alarm.MESSAGE', value:msg },
+        { type:'B', key:'android.intent.extra.alarm.VIBRATE', value:vibrate },
+      ];
+      if (silent) extras.push({ type:'S', key:'android.intent.extra.alarm.RINGTONE', value:'VALUE_RINGTONE_SILENT' });
+      if (skipUi) extras.push({ type:'B', key:'android.intent.extra.alarm.SKIP_UI', value:true });
+
+      return buildIntentUri('SET_ALARM', extras);
+    },
+    setTimer(){
+      const h = parseInt(document.getElementById('t-h').value, 10) || 0;
+      const m = parseInt(document.getElementById('t-m').value, 10) || 0;
+      const s = parseInt(document.getElementById('t-s').value, 10) || 0;
+      const totalSeconds = Math.min(86400, h*3600 + m*60 + s);
+      const msg = document.getElementById('t-msg').value;
+      const skipUi = document.getElementById('t-skipui').checked;
+
+      const extras = [
+        { type:'i', key:'android.intent.extra.alarm.LENGTH', value:totalSeconds },
+        { type:'S', key:'android.intent.extra.alarm.MESSAGE', value:msg },
+        { type:'B', key:'android.intent.extra.alarm.SKIP_UI', value:skipUi },
+      ];
+      return buildIntentUri('SET_TIMER', extras);
+    },
+    showAlarms(){
+      return buildIntentUri('SHOW_ALARMS', []);
+    },
+    dismissAlarm(){
+      const msg = document.getElementById('d-msg').value;
+      const extras = [];
+      if (msg) {
+        extras.push({ type:'i', key:'android.intent.extra.alarm.ALARM_SEARCH_MODE', value:2 }); // SEARCH_MODE_LABEL
+        extras.push({ type:'S', key:'android.intent.extra.alarm.MESSAGE', value:msg });
+      }
+      return buildIntentUri('DISMISS_ALARM', extras);
+    },
+    dismissTimer(){
+      return buildIntentUri('DISMISS_TIMER', []);
+    }
+  };
+
+  document.querySelectorAll('button.generate').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      const uri = generators[targetId]();
+      const panelEl = document.getElementById(targetId);
+      renderTicket(panelEl, uri);
+    });
+  });
+</script>
 </body>
 </html>
