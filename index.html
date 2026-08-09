@@ -405,8 +405,29 @@
       if (e.type === 'S') val = encodeURIComponent(String(val));
       parts.push(e.type + '.' + e.key + '=' + val);
     });
-    return 'intent:#Intent;' + parts.join(';') + ';end';
+    // browser_fallback_url: pokud telefon nenajde appku, co akci zvládne,
+    // Chrome přesměruje sem místo toho, aby neudělal vůbec nic — díky tomu
+    // to jde rozpoznat (viz kontrola parametru ?blocked= níže).
+    const fallback = location.origin + location.pathname + '?blocked=' + encodeURIComponent(action);
+    parts.push('S.browser_fallback_url=' + encodeURIComponent(fallback));
+    // Formát s "//" a hostem je ten, který Chrome oficiálně dokumentuje
+    // (intent://HOST/PATH#Intent;...;end) a je k parsování shovívavější
+    // než zkrácené "intent:#Intent;...;end".
+    return 'intent://alarm/#Intent;' + parts.join(';') + ';end';
   }
+
+  // Pokud jsme se vrátili zpátky přes browser_fallback_url, appka hodin akci
+  // nezvládla (nebo neexistuje) — ukážeme na to jasnou hlášku.
+  (function checkBlocked(){
+    const params = new URLSearchParams(location.search);
+    const blocked = params.get('blocked');
+    if (!blocked) return;
+    const banner = document.createElement('div');
+    banner.style.cssText = 'max-width:760px;margin:16px auto 0;padding:14px 18px;border:1px solid #c1443c;background:rgba(193,68,60,.12);border-radius:10px;font-family:IBM Plex Mono,monospace;font-size:13px;color:#f1ece2;';
+    banner.textContent = '⚠ Appka hodin na tomto telefonu neumí zpracovat akci „' + blocked + '" (nebo tu není žádná registrovaná appka) — Android proto přesměroval zpět sem, místo aby otevřel Hodiny.';
+    document.querySelector('header').after(banner);
+    history.replaceState(null, '', location.pathname);
+  })();
 
   function renderTicket(panelEl, uri){
     const ticket = panelEl.querySelector('.ticket');
